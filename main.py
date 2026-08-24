@@ -1,15 +1,15 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 import json
+import asyncio
 
 app = FastAPI()
 
 # =========================================================
 # STATIC DOSYALAR
 # =========================================================
-# 'controller' ve 'cube' klasörlerinin bu dosya ile aynı dizinde olduğundan emin olun.
-app.mount("/controller", StaticFiles(directory="controller", html=True),)
-app.mount("/cube", StaticFiles(directory="cube", html=True),)
+app.mount("/controller", StaticFiles(directory="controller", html=True))
+app.mount("/cube", StaticFiles(directory="cube", html=True))
 
 # =========================================================
 # BAĞLANTILAR
@@ -26,22 +26,24 @@ game_state = {
 }
 
 # =========================================================
-# CUBE'A DURUM GÖNDER
+# CUBE'A DURUM GÖNDER (Asenkron & Performanslı)
 # =========================================================
 async def send_state_to_cubes():
+    if not cube_clients:
+        return
+
     message = json.dumps({
         "type": "control",
         "player1": game_state["player1"],
         "player2": game_state["player2"],
     })
 
-    disconnected = []
-    for client in cube_clients:
-        try:
-            await client.send_text(message)
-        except Exception:
-            disconnected.append(client)
+    # Tüm ekranlara veriyi aynı anda (paralel) göndererek gecikmeyi sıfırlıyoruz
+    tasks = [asyncio.create_task(client.send_text(message)) for client in cube_clients]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
 
+    # Hata veren (bağlantısı kopan) istemcileri temizliyoruz
+    disconnected = [cube_clients for cube_clients, res in zip(list(cube_clients), results) if isinstance(res, Exception)]
     for client in disconnected:
         cube_clients.discard(client)
 
@@ -52,14 +54,14 @@ async def send_state_to_cubes():
 async def cube_socket(ws: WebSocket):
     await ws.accept()
     cube_clients.add(ws)
-    await send_state_to_cubes() # Bağlanınca mevcut durumu gönder
+    await send_state_to_cubes()
 
     try:
         while True:
-            await ws.receive_text() # Bağlantıyı canlı tut
-    except WebSocketDisconnect:
-        cube_clients.discard(ws)
-    except Exception:
+            await ws.receive_text() # Bağlantıyı canlı tutar
+    except (WebSocketDisconnect, Exception):
+        pass
+    finally:
         cube_clients.discard(ws)
 
 # =========================================================
@@ -82,7 +84,7 @@ async def controller_socket(ws: WebSocket):
             if data.get("type") == "join":
                 player = data.get("player")
                 if player in ("player1", "player2"):
-                    continue # İstemci kaydedildi, devam et
+                    continue
 
             # Joystick Kontrolü
             if data.get("type") == "control":
@@ -97,17 +99,16 @@ async def controller_socket(ws: WebSocket):
                 except (TypeError, ValueError):
                     continue
 
+                # Değeri -1.0 ile 1.0 arasında sınırla
                 value = max(-1.0, min(1.0, value))
                 game_state[player] = value
                 
-                # Yeni konumu tüm oyun ekranlarına gönder
                 await send_state_to_cubes()
 
-    except WebSocketDisconnect:
-        controller_clients.discard(ws)
-    except Exception:
-        controller_clients.discard(ws)
+    except (WebSocketDisconnect, Exception):
+        pass
     finally:
+        # İstemci koptuğunda her halükarda listeden güvenle silinir
         controller_clients.discard(ws)
 
 # =========================================================
@@ -125,4 +126,5 @@ def root():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=5000)
+    # Localhost yerine 0.0.0.0 yerel ağ paylaşımları için en doğrusudur
+    uvicorn.run("main:app", host="0.0.0.0", port=5000, reload=True)
