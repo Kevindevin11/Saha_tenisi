@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Multi Pong Controller</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; touch-action: none; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #0d1116; color: white; font-family: Arial, sans-serif; }
+
+/* SEÇİM EKRANI */
+#selection { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; }
+.title { font-size: 34px; font-weight: bold; letter-spacing: 3px; margin-bottom: 20px; }
+.player-button { width: min(85vw, 450px); height: 100px; border-radius: 22px; border: 2px solid #46515c; background: linear-gradient(180deg, #343d46, #1c2228); color: white; font-size: 24px; font-weight: bold; cursor: pointer; transition: transform 0.1s; }
+.player-button:active { transform: scale(0.98); }
+.player1 { border-color: #5795ff; }
+.player2 { border-color: #64d58b; }
+
+/* CONTROLLER EKRANI */
+#controller { display: none; width: 100%; height: 100%; flex-direction: column; align-items: center; position: relative; }
+
+/* BAŞLIK VE BAĞLANTI */
+#header { width: 100%; padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+#playerTitle { font-size: 28px; font-weight: bold; letter-spacing: 2px; }
+#connection { padding: 8px 14px; border-radius: 9px; background: #191f25; border: 1px solid #39434d; color: #ff7373; font-size: 13px; text-align: center; }
+.connected { color: #6ce28e !important; }
+
+/* JOYSTICK ALANI */
+#center { flex: 1; width: 100%; display: flex; align-items: center; justify-content: center; padding: 20px; position: relative; }
+#joystick { position: relative; width: min(88vw, 700px); height: 180px; border-radius: 100px; background: linear-gradient(180deg, #343d46, #181d22); border: 2px solid #4b5762; box-shadow: inset 0 8px 20px #0008, 0 8px 25px #0008; overflow: hidden; }
+#joystick::after { content: ""; position: absolute; left: 50%; top: 20px; bottom: 20px; width: 2px; transform: translateX(-50%); background: #ffffff15; }
+#stick { position: absolute; left: 50%; top: 50%; width: 120px; height: 120px; border-radius: 50%; transform: translate(-50%, -50%); background: radial-gradient(circle at 35% 30%, #9ba7b2, #46515b); border: 2px solid #b0bac3; box-shadow: inset 0 5px 10px #ffffff25, 0 8px 20px #000a; z-index: 2; pointer-events: none; }
+
+/* GERİ DÖN BUTONU (3D) */
+#backButton {
+    position: absolute;
+    top: 20px; /* Joystick'in biraz üstü */
+    right: 20px; /* Sağ köşe */
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(145deg, #3a444d, #2c333a);
+    border: none;
+    outline: none;
+    color: #aab4bd;
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+    z-index: 10;
+    
+    /* 3D Efekti için gölgeler */
+    box-shadow: 
+        5px 5px 10px #080b0e, 
+        -5px -5px 10px #4a5662,
+        inset 0 0 0 transparent;
+    
+    transition: all 0.1s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#backButton:active {
+    /* Tıklanınca içe göçme efekti */
+    box-shadow: 
+        inset 5px 5px 10px #080b0e, 
+        inset -5px -5px 10px #4a5662;
+    transform: scale(0.95);
+    color: #fff;
+}
+
+#value { margin-bottom: 35px; font-family: monospace; font-size: 16px; color: #aab4bd; }
+</style>
+</head>
+<body>
+
+<!-- SEÇİM EKRANI -->
+<div id="selection">
+    <div class="title">MULTI PONG</div>
+    <button class="player-button player1" onclick="selectPlayer('player1')">PLAYER 1</button>
+    <button class="player-button player2" onclick="selectPlayer('player2')">PLAYER 2</button>
+</div>
+
+<!-- KONTROL EKRANI -->
+<div id="controller">
+    <div id="header">
+        <div id="playerTitle">PLAYER 1</div>
+        <div id="connection">BAĞLANIYOR...</div>
+    </div>
+    
+    <div id="center">
+        <!-- Geri Dön Butonu -->
+        <button id="backButton" onclick="goBackToSelection()">↺</button>
+        
+        <div id="joystick"><div id="stick"></div></div>
+    </div>
+    
+    <div id="value">X : 0.00</div>
+</div>
+
+<script>
+let player = null;
+let ws = null;
+let joystickActive = false;
+let currentX = 0;
+let lastSentX = 999;
+
+const selection = document.getElementById("selection");
+const controllerDiv = document.getElementById("controller");
+const playerTitle = document.getElementById("playerTitle");
+const connectionDiv = document.getElementById("connection");
+const joystick = document.getElementById("joystick");
+const stick = document.getElementById("stick");
+const valueDisplay = document.getElementById("value");
+
+function selectPlayer(selectedPlayer) {
+    player = selectedPlayer;
+    selection.style.display = "none";
+    controllerDiv.style.display = "flex";
+    playerTitle.textContent = player === "player1" ? "PLAYER 1" : "PLAYER 2";
+    connect();
+}
+
+// Geri Dönme Fonksiyonu
+function goBackToSelection() {
+    // Bağlantıyı kapat
+    if (ws) {
+        ws.close();
+        ws = null;
+    }
+    
+    // Ekranları değiştir
+    controllerDiv.style.display = "none";
+    selection.style.display = "flex";
+    
+    // Durumu sıfırla
+    joystickActive = false;
+    currentX = 0;
+    moveStick(0);
+    connectionDiv.textContent = "BAĞLANIYOR...";
+    connectionDiv.classList.remove("connected");
+}
+
+function connect() {
+    const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+    const serverHost = location.host; 
+    const wsUrl = `${protocol}//${serverHost}/ws/controller`;
+    
+    try {
+        ws = new WebSocket(wsUrl);
+    } catch (e) {
+        connectionDiv.textContent = "HATA";
+        return;
+    }
+
+    ws.onopen = function() {
+        connectionDiv.textContent = "BAĞLANDI";
+        connectionDiv.classList.add("connected");
+        ws.send(JSON.stringify({ type: "join", player: player }));
+        sendControl(0, true);
+    };
+
+    ws.onclose = function() {
+        connectionDiv.textContent = "BAĞLANTI KESİLDİ";
+        connectionDiv.classList.remove("connected");
+    };
+
+    ws.onerror = function() {
+        connectionDiv.textContent = "HATA";
+        connectionDiv.classList.remove("connected");
+    };
+}
+
+function calculateX(clientX) {
+    const rect = joystick.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    let dx = clientX - centerX;
+    const maximum = rect.width / 2 - stick.offsetWidth / 2 - 8;
+    dx = Math.max(-maximum, Math.min(maximum, dx));
+    let normalized = dx / maximum;
+    if (Math.abs(normalized) < 0.025) normalized = 0;
+    return normalized;
+}
+
+function moveStick(x) {
+    const rect = joystick.getBoundingClientRect();
+    const maximum = rect.width / 2 - stick.offsetWidth / 2 - 8;
+    const px = x * maximum;
+    stick.style.transform = `translate(calc(-50% + ${px}px), -50%)`;
+    valueDisplay.textContent = "X : " + x.toFixed(2);
+}
+
+function sendControl(value, force = false) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    if (!force && Math.abs(value - lastSentX) < 0.005) return;
+    lastSentX = value;
+    ws.send(JSON.stringify({ type: "control", player: player, x: value }));
+}
+
+joystick.addEventListener("pointerdown", function(event) {
+    joystickActive = true;
+    joystick.setPointerCapture(event.pointerId);
+    currentX = calculateX(event.clientX);
+    moveStick(currentX);
+    sendControl(currentX, true);
+});
+
+joystick.addEventListener("pointermove", function(event) {
+    if (!joystickActive) return;
+    currentX = calculateX(event.clientX);
+    moveStick(currentX);
+});
+
+function releaseJoystick() {
+    if (!joystickActive) return;
+    joystickActive = false;
+    currentX = 0;
+    moveStick(0);
+    sendControl(0, true);
+}
+
+joystick.addEventListener("pointerup", releaseJoystick);
+joystick.addEventListener("pointercancel", releaseJoystick);
+joystick.addEventListener("lostpointercapture", releaseJoystick);
+
+setInterval(function() {
+    if (joystickActive) sendControl(currentX);
+}, 33);
+</script>
+</body>
+</html>
