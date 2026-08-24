@@ -31,7 +31,7 @@ Projeyi yerel bilgisayarınızda ayağa kaldırmak için aşağıdaki adımları
 
 ### 1. Depoyu Kopyalayın
 ```bash
-git clone https://github.com
+git clone https://github.com](https://github.com/Kevindevin11/Saha_tenisi.git
 cd pong-
 ```
 
