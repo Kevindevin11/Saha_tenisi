@@ -5,12 +5,15 @@ Bu proje, FastAPI ve WebSocket kullanarak geliştirilmiş, mobil cihazların joy
 ## 🚀 Kurulum ve Çalıştırma
 
 Projeyi çalıştırmak için terminalde aşağıdaki adımları takip edin:
-
-1. Gerekli kütüphaneleri yükleyin:
+1. Depoyu kopyalayın
+````
+git clone https://github.com/Kevindevin11/pong-.git
+````
+2. Gerekli kütüphaneleri yükleyin:
 ```
 pip install -r requirements.txt
 ```
-2. Sunucuyu başlatın
+3. Sunucuyu başlatın
 ```
 python main.py
 ````
