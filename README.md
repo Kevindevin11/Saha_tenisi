@@ -1,29 +1,62 @@
-# 🎾 Saha Tenisi (Multi Pong)
+# 🎾 Saha Tenisi (Multi-Pong)
 
-Bu proje, FastAPI ve WebSocket kullanarak geliştirilmiş, mobil cihazların joystick olarak kullanıldığı çok oyunculu bir Pong prototipidir.
+FastAPI ve WebSocket teknolojileri kullanılarak geliştirilmiş, akıllı telefonların veya tabletlerin birer **kablosuz joystick (kontrolcü)** olarak kullanıldığı, çok oyunculu (multiplayer) modern bir Pong oyun prototipidir.
 
-## 🚀 Kurulum ve Çalıştırma
+---
 
-Projeyi çalıştırmak için terminalde aşağıdaki adımları takip edin:
-1. Depoyu kopyalayın
-````
-git clone https://github.com/Kevindevin11/pong-.git
-````
-2. Gerekli kütüphaneleri yükleyin:
+## 🚀 Özellikler
+
+* **Gerçek Zamanlı İletişim:** WebSocket mimarisi sayesinde sıfıra yakın gecikme (low latency) ile akıcı oyun deneyimi.
+* **Mobil Kontrolcü Desteği:** Herhangi bir mobil cihazın tarayıcısını kullanarak oyuna anında dahil olma.
+* **Kolay Kurulum:** Karmaşık veritabanı veya sunucu yapılandırmalarına ihtiyaç duymayan hafif (lightweight) altyapı.
+
+---
+
+## 📦 Dosya Yapısı ve İşlevleri
+
+```text
+├── controller/
+│   └── index.html      # Mobil cihazlar için tasarlanmış dokunmatik joystick arayüzü.
+├── cube/
+│   └── index.html      # Oyunun oynandığı, top fiziği ve skor takibinin yapıldığı ana ekran.
+├── main.py             # FastAPI sunucusu. Ekranlar arası WebSocket veri trafiğini yönetir.
+└── requirements.txt    # Projenin çalışması için gerekli Python kütüphanelerinin listesi.
 ```
+
+---
+
+## 🛠️ Kurulum ve Çalıştırma
+
+Projeyi yerel bilgisayarınızda ayağa kaldırmak için aşağıdaki adımları sırasıyla takip edin:
+
+### 1. Depoyu Kopyalayın
+```bash
+git clone https://github.com
+cd pong-
+```
+
+### 2. Gerekli Bağımlılıkları Yükleyin
+```bash
 pip install -r requirements.txt
 ```
-3. Sunucuyu başlatın
-```
+
+### 3. Sunucuyu Başlatın
+```bash
 python main.py
-````
+```
 
-# 📂 Dosya Yapısı ve İşlevleri
-### main.py: FastAPI sunucusu. Oyun ekranı ve kontrolcüler arasındaki veri trafiğini yönetir.
-### cube/index.html: Oyunun oynandığı ana ekrandır. Top fiziği ve skor takibi burada yapılır.
-### controller/index.html: Joystick arayüzüdür. Telefon veya tabletten bağlanarak oyuncu çubuğunu hareket ettirmenizi sağlar.
+---
 
+## 🎮 Nasıl Oynanır?
 
-# 🎮 Nasıl Bağlanılır?
-### Oyun Ekranı: Tarayıcınızda http://localhost:5000/cube adresine gidin.
-### Kontrolcü: Aynı ağdaki başka bir cihazdan http://BILGISAYAR_IP_ADRESI:5000/controller adresine girerek oyuna katılın.
+Oyunun başlayabilmesi için ana ekranın ve kontrolcülerin aynı yerel ağa (Wi-Fi) bağlı olması gerekir.
+
+### A. Ana Oyun Ekranını Açın
+Bilgisayarınızın tarayıcısından aşağıdaki adrese giderek oyun alanını açın:
+👉 `http://localhost:5000/cube`
+
+### B. Mobil Kontrolcüleri Bağlayın
+Oyuncu olarak katılacak mobil cihazların (telefon/tablet) tarayıcısından bilgisayarınızın yerel IP adresini kullanarak giriş yapın:
+👉 `http://<BILGISAYAR_IP_ADRESI>:5000/controller`
+
+> 💡 **İpucu:** Bilgisayarınızın IP adresini bulmak için terminale Windows kullanıyorsanız `ipconfig`, macOS/Linux kullanıyorsanız `ifconfig` veya `ip a` yazarak `IPv4` adresinizi öğrenebilirsiniz.
